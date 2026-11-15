@@ -1,0 +1,38 @@
+name: Actualizar Streams de Kworb
+
+on:
+  # Se ejecuta todos los días a las 18:30 UTC (poco después de que Kworb actualiza)
+  schedule:
+    - cron: '30 18 * * *'
+  # Permite ejecutarlo manualmente con un botón en cualquier momento
+  workflow_dispatch:
+
+# Permiso necesario para que el bot guarde el archivo data.json en tu repositorio
+permissions:
+  contents: write
+
+jobs:
+  actualizar-datos:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar archivos del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar librerías necesarias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar scraper de Kworb
+        run: python scraper.py
+
+      - name: Guardar data.json actualizado
+        run: |
+          git config --local user.email "github-actions[bot]@://github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualización automática Kworb" && git push)
