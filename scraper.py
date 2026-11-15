@@ -60,9 +60,9 @@ def fetch_kworb_songs():
         for row in table.find_all("tr"):
             cols = [c.get_text(strip=True) for c in row.find_all("td")]
             if len(cols) >= 3:
-                norm_title = normalize_title(cols)
-                total = clean_number(cols)
-                daily = clean_number(cols)
+                norm_title = normalize_title(cols[0])
+                total = clean_number(cols[1])
+                daily = clean_number(cols[2])
                 if norm_title not in songs_map or total > songs_map[norm_title]["total"]:
                     songs_map[norm_title] = {"total": total, "daily": daily}
     return songs_map
@@ -87,7 +87,6 @@ def main():
             current = kworb_songs.get(norm, {"total": 0, "daily": 0})
             total = current["total"]
             hoy = current["daily"]
-            # Toma los streams de ayer guardados previamente; si es el primer día, usa el mismo valor
             ayer = prev_tracks.get(track, {}).get("hoy", hoy)
 
             lines.append(f"{track}, {total}, {hoy}, {ayer}")
