@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Tablas Spotify</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg-main: #e8cfd4;
+    --card-bg: #ffffff;
+    --text-main: #2d1e22;
+    --text-muted: #7a5c64;
+    --green: #1e9e5a;
+    --red: #d94359;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+  body { background: #121212; color: #fff; display: flex; flex-wrap: wrap; gap: 24px; padding: 20px; justify-content: center; }
+
+  .controls { width: 100%; max-width: 400px; background: #1e1e1e; padding: 20px; border-radius: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .controls h2 { font-size: 18px; color: #1db954; }
+  .control-group { display: flex; flex-direction: column; gap: 4px; }
+  .row-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label { font-size: 12px; color: #aaa; font-weight: 600; }
+  input, textarea { background: #2a2a2a; border: 1px solid #3d3d3d; color: #fff; padding: 8px 10px; border-radius: 8px; font-size: 13px; width: 100%; }
+  textarea { height: 155px; font-family: monospace; resize: vertical; }
+  .hint { font-size: 11px; color: #888; line-height: 1.3; }
+  .btn-group { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; margin-top: 4px; }
+  .btn { background: #1db954; color: #000; border: none; padding: 12px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 14px; }
+  .btn:hover { background: #1ed760; }
+  .btn-clear { background: #333; color: #fff; }
+  .btn-clear:hover { background: #444; }
+
+  .preview-wrapper { overflow-x: auto; max-width: 100%; padding-bottom: 10px; }
+  .poster {
+    width: 880px;
+    background-color: var(--bg-main);
+    border-radius: 24px;
+    padding: 32px 32px 24px 32px;
+    color: var(--text-main);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sparkle-1 { position: absolute; top: 18px; right: 26px; font-size: 20px; opacity: 0.35; pointer-events: none; }
+  .sparkle-2 { position: absolute; top: 42px; right: 52px; font-size: 12px; opacity: 0.25; pointer-events: none; }
+
+  .header { display: flex; gap: 24px; margin-bottom: 24px; align-items: stretch; }
+  .cover-box { position: relative; width: 205px; height: 205px; flex-shrink: 0; }
+  .cover { width: 100%; height: 100%; border-radius: 16px; object-fit: cover; box-shadow: 0 8px 20px rgba(0,0,0,0.15); background: #ddd; display: block; }
+  .spotify-pill {
+    position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
+    background: #191414; color: #fff; font-size: 9px; font-weight: 800;
+    letter-spacing: 0.8px; padding: 4px 10px; border-radius: 20px;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+  .spotify-dot { width: 7px; height: 7px; background: #1db954; border-radius: 50%; display: inline-block; }
+
+  .header-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+  .title-block { display: flex; flex-direction: column; gap: 4px; }
+  .album-title { font-size: 26px; font-weight: 800; line-height: 1.15; }
+  .meta-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .artist-badge { font-size: 12px; font-weight: 800; background: rgba(255,255,255,0.65); padding: 3px 10px; border-radius: 8px; color: var(--text-main); }
+  .date { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+
+  .stat-card { background: var(--card-bg); border-radius: 14px; padding: 11px 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+  .stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.4px; }
+  .stat-value-lg { font-size: 27px; font-weight: 800; margin-top: 2px; }
+  .stat-value-md { font-size: 19px; font-weight: 800; margin-top: 2px; }
+  .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+  .table-container { background: var(--card-bg); border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { background: rgba(0,0,0,0.04); color: var(--text-muted); font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 13px 16px; text-align: right; }
+  th:first-child { text-align: left; padding-left: 24px; }
+  td { padding: 10px 16px; text-align: right; font-weight: 600; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; }
+  td:first-child { text-align: left; padding-left: 24px; }
+  tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+
+  .track-cell { display: flex; align-items: center; gap: 6px; }
+  .track-num { color: var(--text-muted); display: inline-block; width: 22px; font-weight: 700; }
+  .track-name { font-weight: 700; }
+  .badge-top { background: #1db954; color: #fff; font-size: 8.5px; font-weight: 800; padding: 2px 6px; border-radius: 6px; letter-spacing: 0.4px; text-transform: uppercase; }
+
+  .total-cell { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .bar-bg { width: 70px; height: 3px; background: rgba(0,0,0,0.07); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--text-muted); opacity: 0.5; border-radius: 2px; }
+
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .total-row { background: rgba(0,0,0,0.05) !important; font-weight: 800; font-size: 14.5px; }
+  .total-row td { border-bottom: none; padding: 14px 16px; }
+  .total-row td:first-child { padding-left: 24px; }
+
+  .poster-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 16px; padding: 0 8px; font-size: 11px; font-weight: 700;
+    color: var(--text-muted); opacity: 0.85;
+  }
+  .equalizer { display: flex; align-items: flex-end; gap: 3px; height: 14px; }
+  .equalizer span { width: 3px; background: var(--text-muted); border-radius: 2px; opacity: 0.45; }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h2>Editor de Tabla</h2>
+  <div class="control-group">
+    <label>Título del Álbum (Detecta artista automático)</label>
+    <input type="text" id="inTitle" value="you seem pretty sad for a girl so in love" oninput="alCambiarTitulo()">
+  </div>
+  <div class="row-inputs">
+    <div class="control-group">
+      <label>Artista</label>
+      <input type="text" id="inArtist" value="Claire Rosinkranz" oninput="actualizar()">
+    </div>
+    <div class="control-group">
+      <label>Fecha</label>
+      <input type="text" id="inDate" value="Friday, November 13, 2026" oninput="actualizar()">
+    </div>
+  </div>
+  <div class="row-inputs">
+    <div class="control-group">
+      <label>Firma / Marca</label>
+      <input type="text" id="inWatermark" value="@joacospilled" oninput="actualizar()">
+    </div>
+    <div class="control-group">
+      <label>Color de Fondo Sólido</label>
+      <input type="color" id="inColor" value="#e8cfd4" oninput="actualizar()" style="height:35px; cursor:pointer;">
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Subir Portada (Extrae color sólido automático)</label>
+    <input type="file" id="inCover" accept="image/*" onchange="cargarPortada(event)">
+  </div>
+  <div class="control-group">
+    <label>Canciones (Comas o pegado directo de Kworb/Excel)</label>
+    <div class="hint">Formato: <b>Canción, Total, Hoy, Ayer</b> (una por línea).</div>
+    <textarea id="inTracks" oninput="actualizar()">drop dead, 621138586, 1737165, 1711183
+stupid song, 493186770, 2449446, 2505473
+honeybee, 304132175, 1440488, 1493061
+maggots for brains, 215341607, 885485, 870739
+u + me = <3, 178416051, 656388, 671082
+my way, 170245381, 523552, 540387
+purple, 144778309, 705554, 713421
+the cure, 618305086, 3422342, 3522048
+begged, 159226635, 561627, 580369
+what's wrong with me, 185657132, 683048, 703241
+less, 195534797, 776067, 796960
+expectations, 217362687, 1036206, 1039909
+cigarette smoke, 149870778, 1030153, 1057393</textarea>
+  </div>
+  <div class="btn-group">
+    <button class="btn btn-clear" onclick="limpiarLista()">Limpiar</button>
+    <button class="btn" onclick="descargarImagen()">Descargar PNG</button>
+  </div>
+</div>
+
+<div class="preview-wrapper">
+  <div class="poster" id="posterArea">
+    <div class="sparkle-1">✦</div>
+    <div class="sparkle-2">✦</div>
+
+    <div class="header">
+      <div class="cover-box">
+        <img class="cover" id="outCover" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='%23d4b4bc'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%237a5c64' font-family='sans-serif' font-size='14' font-weight='bold'>PORTADA</text></svg>">
+        <div class="spotify-pill"><span class="spotify-dot"></span> SPOTIFY STREAMS</div>
+      </div>
+
+      <div class="header-info">
+        <div class="title-block">
+          <div class="album-title" id="outTitle"></div>
+          <div class="meta-line">
+            <span class="artist-badge" id="outArtist"></span>
+            <span class="date" id="outDate"></span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Total Streams</div>
+          <div class="stat-value-lg" id="outTotalAll">0</div>
+        </div>
+
+        <div class="metrics-row">
+          <div class="stat-card">
+            <div class="stat-label">Daily Streams</div>
+            <div class="stat-value-md" id="outDailyAll">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Daily Change (%)</div>
+            <div class="stat-value-md" id="outPctAll">0%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Daily Change (+/-)</div>
+            <div class="stat-value-md" id="outDiffAll">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Track</th>
+            <th>Total</th>
+            <th>Daily</th>
+            <th>Daily Change (%)</th>
+            <th>Daily Change (+/-)</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="poster-footer">
+      <div id="outWatermark">@joacospilled</div>
+      <div class="equalizer">
+        <span style="height:6px"></span><span style="height:12px"></span><span style="height:8px"></span>
+        <span style="height:14px"></span><span style="height:5px"></span><span style="height:11px"></span>
+        <span style="height:13px"></span><span style="height:7px"></span><span style="height:10px"></span>
+        <span style="height:6px"></span>
+      </div>
+      <div>Data via Spotify / Kworb</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const albumDatabase = {
+    "you seem pretty sad for a girl so in love": "Claire Rosinkranz",
+    "just because": "Claire Rosinkranz",
+    "6 of a billion": "Claire Rosinkranz",
+    "beverly hills boy": "Claire Rosinkranz",
+    "sour": "Olivia Rodrigo",
+    "guts": "Olivia Rodrigo",
+    "guts (spilled)": "Olivia Rodrigo",
+    "short n' sweet": "Sabrina Carpenter",
+    "emails i can't send": "Sabrina Carpenter",
+    "hit me hard and soft": "Billie Eilish",
+    "happier than ever": "Billie Eilish",
+    "when we all fall asleep, where do we go?": "Billie Eilish",
+    "the tortured poets department": "Taylor Swift",
+    "midnights": "Taylor Swift",
+    "1989 (taylor's version)": "Taylor Swift",
+    "lover": "Taylor Swift",
+    "folklore": "Taylor Swift",
+    "evermore": "Taylor Swift",
+    "reputation": "Taylor Swift",
+    "eternal sunshine": "Ariana Grande",
+    "thank u, next": "Ariana Grande",
+    "positions": "Ariana Grande",
+    "brat": "Charli xcx",
+    "chappell roan": "Chappell Roan",
+    "the rise and fall of a midwest princess": "Chappell Roan",
+    "sos": "SZA",
+    "ctrl": "SZA",
+    "un verano sin ti": "Bad Bunny",
+    "nadie sabe lo que va a pasar mañana": "Bad Bunny",
+    "mañana será bonito": "KAROL G",
+    "radical optimism": "Dua Lipa",
+    "future nostalgia": "Dua Lipa",
+    "eternal": "Ariana Grande",
+    "mayhem": "Lady Gaga",
+    "gnx": "Kendrick Lamar",
+    "chromakopia": "Tyler, The Creator"
+  };
+
+  function alCambiarTitulo() {
+    const val = document.getElementById('inTitle').value.trim().toLowerCase();
+    if (albumDatabase[val]) {
+      document.getElementById('inArtist').value = albumDatabase[val];
+    }
+    actualizar();
+  }
+
+  function escapeHTML(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function parseNumber(str) {
+    if (!str) return 0;
+    const cleaned = str.replace(/[^0-9.-]/g, '');
+    return parseFloat(cleaned) || 0;
+  }
+
+  function fmtNum(n) { return Math.round(n).toLocaleString('en-US'); }
+  function fmtSign(n) { const v = Math.round(n); return (v > 0 ? '+' : '') + v.toLocaleString('en-US'); }
+
+  function limpiarLista() {
+    document.getElementById('inTracks').value = '';
+    actualizar();
+  }
+
+  function cargarPortada(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const img = document.getElementById('outCover');
+      img.onload = function() {
+        const c = document.createElement('canvas');
+        const ctx = c.getContext('2d');
+        c.width = 1; c.height = 1;
+        ctx.drawImage(img, 0, 0, 1, 1);
+        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+        const mix = (val) => Math.round(val * 0.45 + 255 * 0.55);
+        const hex = "#" + [mix(r), mix(g), mix(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+        document.getElementById('inColor').value = hex;
+        actualizar();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function actualizar() {
+    document.getElementById('outTitle').innerText = document.getElementById('inTitle').value;
+    document.getElementById('outDate').innerText = document.getElementById('inDate').value;
+    document.getElementById('outWatermark').innerText = document.getElementById('inWatermark').value;
+    document.documentElement.style.setProperty('--bg-main', document.getElementById('inColor').value);
+
+    const artistVal = document.getElementById('inArtist').value.trim();
+    const artistEl = document.getElementById('outArtist');
+    if (artistVal) {
+      artistEl.innerText = artistVal;
+      artistEl.style.display = 'inline-block';
+    } else {
+      artistEl.style.display = 'none';
+    }
+
+    const rawText = document.getElementById('inTracks').value.trim();
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+
+    let sTotal = 0, sHoy = 0, sAyer = 0;
+    let parsedTracks = [];
+
+    if (rawText) {
+      const lines = rawText.split(/\r?\n/);
+      lines.forEach((line) => {
+        if (!line.trim()) return;
+        let parts = line.includes('\t') ? line.split('\t') : line.split(',');
+        if (parts.length < 3) return;
+
+        let name = parts[0].trim();
+        let total = 0, hoy = 0, ayer = 0;
+
+        if (parts.length >= 4) {
+          total = parseNumber(parts[1]);
+          hoy = parseNumber(parts[2]);
+          ayer = parseNumber(parts[3]);
+        } else {
+          total = parseNumber(parts[1]);
+          hoy = parseNumber(parts[2]);
+          ayer = hoy;
+        }
+
+        const diff = hoy - ayer;
+        const pct = ayer > 0 ? ((diff / ayer) * 100) : 0;
+
+        sTotal += total; sHoy += hoy; sAyer += ayer;
+        parsedTracks.push({ name, total, hoy, diff, pct });
+      });
+    }
+
+    const maxTotal = parsedTracks.reduce((m, t) => Math.max(m, t.total), 1);
+    const maxHoy = parsedTracks.reduce((m, t) => Math.max(m, t.hoy), 0);
+
+    parsedTracks.forEach((t, i) => {
+      const cls = t.diff >= 0 ? 'pos' : 'neg';
+      const barWidth = Math.max(4, Math.round((t.total / maxTotal) * 100));
+      const isTopDaily = (t.hoy > 0 && t.hoy === maxHoy && parsedTracks.length > 1);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div class="track-cell">
+            <span class="track-num">${i + 1}</span>
+            <span class="track-name">${escapeHTML(t.name)}</span>
+            ${isTopDaily ? '<span class="badge-top">Top Daily</span>' : ''}
+          </div>
+        </td>
+        <td>
+          <div class="total-cell">
+            <span>${fmtNum(t.total)}</span>
+            <div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%"></div></div>
+          </div>
+        </td>
+        <td>${fmtSign(t.hoy)}</td>
+        <td class="${cls}">${(t.pct > 0 ? '+' : '') + t.pct.toFixed(2)}%</td>
+        <td class="${cls}">${fmtSign(t.diff)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const tDiff = sHoy - sAyer;
+    const tPct = sAyer > 0 ? ((tDiff / sAyer) * 100) : 0;
+    const tCls = tDiff >= 0 ? 'pos' : 'neg';
+
+    document.getElementById('outTotalAll').innerText = fmtNum(sTotal);
+    document.getElementById('outDailyAll').innerText = fmtSign(sHoy);
+
+    const elPct = document.getElementById('outPctAll');
+    elPct.innerText = (tPct > 0 ? '+' : '') + tPct.toFixed(2) + '%';
+    elPct.className = 'stat-value-md ' + tCls;
+
+    const elDiff = document.getElementById('outDiffAll');
+    elDiff.innerText = fmtSign(tDiff);
+    elDiff.className = 'stat-value-md ' + tCls;
+
+    const trT = document.createElement('tr');
+    trT.className = 'total-row';
+    trT.innerHTML = `
+      <td>Total:</td>
+      <td>${fmtNum(sTotal)}</td>
+      <td>${fmtSign(sHoy)}</td>
+      <td class="${tCls}">${(tPct > 0 ? '+' : '') + tPct.toFixed(2)}%</td>
+      <td class="${tCls}">${fmtSign(tDiff)}</td>
+    `;
+    tbody.appendChild(trT);
+  }
+
+  function descargarImagen() {
+    html2canvas(document.getElementById('posterArea'), { scale: 2, useCORS: true }).then(canvas => {
+      const a = document.createElement('a');
+      a.download = 'spotify-stats.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    });
+  }
+
+  actualizar();
+</script>
+</body>
+</html>
