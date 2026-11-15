@@ -50,25 +50,20 @@ def load_previous_data():
     return {}
 
 def fetch_kworb_songs():
-    resp = requests.get(URL_SONGS, headers=HEADERS, timeout=30)
+    proxy_url = f"https://jina.ai{URL_SONGS}"
+    resp = requests.get(proxy_url, headers=HEADERS, timeout=45)
     resp.raise_for_status()
-    soup = BeautifulSoup(resp.content, "html.parser")
 
     songs_map = {}
-    for row in soup.find_all("tr"):
-        link = row.find("a")
-        if not link:
-            continue
-        norm_title = normalize_title(link.get_text(strip=True))
-        nums = []
-        for td in row.find_all("td"):
-            txt = td.get_text(strip=True)
-            if re.match(r"^[\d,]+$", txt):
-                nums.append(clean_number(txt))
-        if len(nums) >= 2:
-            total, daily = nums[0], nums[1]
-            if norm_title not in songs_map or total > songs_map[norm_title]["total"]:
-                songs_map[norm_title] = {"total": total, "daily": daily}
+    for line in resp.text.splitlines():
+        if "|" in line and "[" in line and "]" in line:
+            title_match = re.search(r"\[([^\]]+)\]", line)
+            nums = [clean_number(n) for n in re.findall(r"\b\d{1,3}(?:,\d{3})+\b", line)]
+            if title_match and len(nums) >= 2:
+                norm_title = normalize_title(title_match.group(1))
+                total, daily = nums[0], nums[1]
+                if norm_title not in songs_map or total > songs_map[norm_title]["total"]:
+                    songs_map[norm_title] = {"total": total, "daily": daily}
     return songs_map
 
 def main():
