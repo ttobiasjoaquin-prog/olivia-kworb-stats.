@@ -50,21 +50,34 @@ def load_previous_data():
     return {}
 
 def fetch_kworb_songs():
-    proxy_url = f"https://jina.ai{URL_SONGS}"
-    resp = requests.get(proxy_url, headers=HEADERS, timeout=45)
-    resp.raise_for_status()
+    urls = [
+        URL_SONGS,
+        f"https://allorigins.win{URL_SONGS}"
+    ]
+    html = ""
+    for u in urls:
+        try:
+            r = requests.get(u, headers=HEADERS, timeout=30)
+            if r.status_code == 200 and "drivers license" in r.text.lower():
+                html = r.text
+                break
+        except Exception:
+            continue
 
+    soup = BeautifulSoup(html, "html.parser")
     songs_map = {}
-    for line in resp.text.splitlines():
-        if "|" in line and "[" in line and "]" in line:
-            title_match = re.search(r"\[([^\]]+)\]", line)
-            nums = [clean_number(n) for n in re.findall(r"\b\d{1,3}(?:,\d{3})+\b", line)]
-            if title_match and len(nums) >= 2:
-                norm_title = normalize_title(title_match.group(1))
-                total, daily = nums[0], nums[1]
-                if norm_title not in songs_map or total > songs_map[norm_title]["total"]:
-                    songs_map[norm_title] = {"total": total, "daily": daily}
+    for row in soup.find_all("tr"):
+        link = row.find("a")
+        if not link:
+            continue
+        norm_title = normalize_title(link.get_text(strip=True))
+        nums = [clean_number(td.get_text(strip=True)) for td in row.find_all("td") if re.match(r"^[\d,]+$", td.get_text(strip=True))]
+        if len(nums) >= 2:
+            total, daily = nums[:2]
+            if norm_title not in songs_map or total > songs_map[norm_title]["total"]:
+                songs_map[norm_title] = {"total": total, "daily": daily}
     return songs_map
+
 
 def main():
     prev_data = load_previous_data().get("albums", {})
