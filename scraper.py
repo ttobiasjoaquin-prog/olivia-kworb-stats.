@@ -52,19 +52,23 @@ def load_previous_data():
 def fetch_kworb_songs():
     resp = requests.get(URL_SONGS, headers=HEADERS, timeout=30)
     resp.raise_for_status()
-    resp.encoding = "utf-8"
-    soup = BeautifulSoup(resp.text, "html.parser")
+    soup = BeautifulSoup(resp.content, "html.parser")
 
     songs_map = {}
-    for table in soup.find_all("table"):
-        for row in table.find_all("tr"):
-            cols = [c.get_text(strip=True) for c in row.find_all("td")]
-            if len(cols) >= 3:
-                norm_title = normalize_title(cols[0])
-                total = clean_number(cols[1])
-                daily = clean_number(cols[2])
-                if norm_title not in songs_map or total > songs_map[norm_title]["total"]:
-                    songs_map[norm_title] = {"total": total, "daily": daily}
+    for row in soup.find_all("tr"):
+        link = row.find("a")
+        if not link:
+            continue
+        norm_title = normalize_title(link.get_text(strip=True))
+        nums = []
+        for td in row.find_all("td"):
+            txt = td.get_text(strip=True)
+            if re.match(r"^[\d,]+$", txt):
+                nums.append(clean_number(txt))
+        if len(nums) >= 2:
+            total, daily = nums[0], nums[1]
+            if norm_title not in songs_map or total > songs_map[norm_title]["total"]:
+                songs_map[norm_title] = {"total": total, "daily": daily}
     return songs_map
 
 def main():
