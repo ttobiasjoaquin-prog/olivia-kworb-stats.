@@ -191,13 +191,14 @@
       }
       renderTable();
     }
+    
+const kworbUrl = "https://kworb.net/spotify/artist/1McMsnEElThX1knmY4oliG_songs.html";
 
-        async function loadData() {
-      const kworbUrl = "https://kworb.net";
-      const proxies = [
-        `https://allorigins.win{encodeURIComponent(kworbUrl)}`,
-        `https://corsproxy.io{encodeURIComponent(kworbUrl)}`
-      ];
+const proxies = [
+  `https://api.allorigins.win/raw?url=${encodeURIComponent(kworbUrl)}`,
+  `https://corsproxy.io/?url=${encodeURIComponent(kworbUrl)}`
+];
+
 
       const albumsList = {
         "SOUR": ["brutal", "traitor", "drivers license", "1 step forward, 3 steps back", "deja vu", "good 4 u", "enough for you", "happier", "jealousy, jealousy", "favorite crime", "hope ur ok"],
