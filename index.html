@@ -192,13 +192,83 @@
       renderTable();
     }
 
-    async function loadData() {
-      try {
-        const res = await fetch('./data.json?t=' + Date.now());
-        kworbData = await res.json();
-        selectAlbum('SOUR');
-      } catch (e) { console.error(e); }
+        async function loadData() {
+      const kworbUrl = "https://kworb.net";
+      const proxies = [
+        `https://allorigins.win{encodeURIComponent(kworbUrl)}`,
+        `https://corsproxy.io{encodeURIComponent(kworbUrl)}`
+      ];
+
+      const albumsList = {
+        "SOUR": ["brutal", "traitor", "drivers license", "1 step forward, 3 steps back", "deja vu", "good 4 u", "enough for you", "happier", "jealousy, jealousy", "favorite crime", "hope ur ok"],
+        "GUTS (spilled)": ["all-american bitch", "bad idea right?", "vampire", "lacy", "ballad of a homeschooled girl", "making the bed", "logical", "get him back!", "love is embarrassing", "the grudge", "pretty isn't pretty", "teenage dream", "obsessed", "girl i've always been", "scared of my guitar", "stranger", "so american"],
+        "you seem pretty sad for a girl so in love": ["drop dead", "stupid song", "honeybee", "maggots for brains", "u + me = <3", "my way", "purple", "the cure", "begged", "what's wrong with me", "less", "expectations", "cigarette smoke"]
+      };
+
+      document.getElementById('in-date').value = "Descargando de Kworb...";
+
+      let html = "";
+      for (const p of proxies) {
+        try {
+          const r = await fetch(p);
+          const txt = await r.text();
+          if (txt.toLowerCase().includes("drivers license")) { html = txt; break; }
+        } catch (e) {}
+      }
+
+      if (!html) {
+        document.getElementById('in-date').value = "Error conectando con Kworb";
+        return;
+      }
+
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const songsMap = {};
+      doc.querySelectorAll("tr").forEach(row => {
+        const link = row.querySelector("a");
+        if (!link) return;
+        const title = link.textContent.toLowerCase().replace(/\s*\((with|feat).*?\)/g, "").trim();
+        const nums = Array.from(row.querySelectorAll("td"))
+          .map(td => td.textContent.trim())
+          .filter(t => /^[\d,]+$/.test(t))
+          .map(t => Number(t.replace(/,/g, "")));
+        if (nums.length >= 2) {
+          const [total, daily] = nums;
+          if (!songsMap[title] || total > songsMap[title].total) {
+            songsMap[title] = { total, daily };
+          }
+        }
+      });
+
+      const savedHistory = JSON.parse(localStorage.getItem("kworb_history") || "{}");
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const lastDate = localStorage.getItem("kworb_last_date");
+
+      kworbData = {
+        date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        albums: {}
+      };
+
+      const newHistory = { ...savedHistory };
+
+      for (const [alb, tracks] of Object.entries(albumsList)) {
+        const lines = tracks.map(t => {
+          const key = t.toLowerCase().trim();
+          const cur = songsMap[key] || { total: 0, daily: 0 };
+          let ayer = cur.daily;
+          if (savedHistory[key]) {
+            ayer = (lastDate && lastDate !== todayKey) ? savedHistory[key].hoy : savedHistory[key].ayer;
+          }
+          newHistory[key] = { hoy: cur.daily, ayer };
+          return `${t}, ${cur.total}, ${cur.daily}, ${ayer}`;
+        });
+        kworbData.albums[alb] = { textarea_ready: lines.join("\n") };
+      }
+
+      localStorage.setItem("kworb_history", JSON.stringify(newHistory));
+      localStorage.setItem("kworb_last_date", todayKey);
+      selectAlbum('SOUR');
     }
+
 
     document.querySelectorAll('.album-btn').forEach(btn => btn.addEventListener('click', () => selectAlbum(btn.dataset.album)));
     ['in-album', 'in-artist', 'in-date', 'in-brand', 'in-color', 'in-tracks'].forEach(id => document.getElementById(id).addEventListener('input', renderTable));
